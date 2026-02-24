@@ -903,31 +903,16 @@ async function seed() {
     db.prepare('DELETE FROM individuals WHERE individual_id = ?').run(duplicateId);
   }
 
+  // Clean up old James-Lee-only profile review requests from previous seed runs.
   db.prepare(`
     DELETE FROM ongoing_monitoring
-    WHERE request_id IN (
-      SELECT request_id
-      FROM reference_requests
-      WHERE individual_id = ?
-        AND notes LIKE ?
-    )
-  `).run(jamesLeeIndividualId, 'James Lee profile review -%');
-
+    WHERE request_id IN (SELECT request_id FROM reference_requests WHERE notes LIKE ?)
+  `).run('James Lee profile review -%');
   db.prepare(`
     DELETE FROM conduct_information
-    WHERE request_id IN (
-      SELECT request_id
-      FROM reference_requests
-      WHERE individual_id = ?
-        AND notes LIKE ?
-    )
-  `).run(jamesLeeIndividualId, 'James Lee profile review -%');
-
-  db.prepare(`
-    DELETE FROM reference_requests
-    WHERE individual_id = ?
-      AND notes LIKE ?
-  `).run(jamesLeeIndividualId, 'James Lee profile review -%');
+    WHERE request_id IN (SELECT request_id FROM reference_requests WHERE notes LIKE ?)
+  `).run('James Lee profile review -%');
+  db.prepare(`DELETE FROM reference_requests WHERE notes LIKE ?`).run('James Lee profile review -%');
 
   // --- Employment Records ---
   const employments = [
@@ -967,366 +952,233 @@ async function seed() {
   for (const reg of registrations) insertReg.run(reg);
 
   // --- Sample Reference Requests ---
+  // Spread across all 9 individuals with varied statuses, sectors, and institutions.
   const sevenYearsAgo = new Date();
   sevenYearsAgo.setFullYear(sevenYearsAgo.getFullYear() - 7);
+  const lookback = sevenYearsAgo.toISOString().split('T')[0];
 
   const requests = [
+    // 0 — Cheung Wing Yan: RM hire (in_progress)
     {
       request_id: uuidv4(),
       individual_id: individuals[0].individual_id,
       recruiting_institution_id: institutions[0].institution_id,
       reference_providing_institution_id: institutions[1].institution_id,
-      consent_id: null,
-      request_sector: 'banking',
-      lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-      status: 'in_progress',
-      request_date: '2025-12-01',
-      sla_deadline: '2025-12-31',
-      sla_breached: 0,
+      consent_id: null, request_sector: 'banking', lookback_start_date: lookback,
+      status: 'in_progress', request_date: '2025-12-01', sla_deadline: '2025-12-31', sla_breached: 0,
       notes: 'RM hiring for Wealth Management team',
-      integration_snapshot: JSON.stringify({
-        generated_at: '2025-12-01T09:00:00.000Z',
-        summary: { watchlist_hits: 1, license_matches: 1, issue_hits: 1, litigation_hits: 0 },
-      }),
+      integration_snapshot: JSON.stringify({ generated_at: '2025-12-01T09:00:00.000Z', summary: { watchlist_hits: 1, license_matches: 1, issue_hits: 1, litigation_hits: 0 } }),
       integration_last_checked_at: '2025-12-01T09:00:00.000Z',
       initiated_by_user_id: users[3].user_id,
     },
+    // 1 — Wong Siu Fung: cross-sector hire (sent)
     {
       request_id: uuidv4(),
       individual_id: individuals[2].individual_id,
       recruiting_institution_id: institutions[0].institution_id,
       reference_providing_institution_id: institutions[2].institution_id,
-      consent_id: null,
-      request_sector: 'cross_sector',
-      lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-      status: 'sent',
-      request_date: '2025-11-15',
-      sla_deadline: '2025-12-15',
-      sla_breached: 0,
+      consent_id: null, request_sector: 'cross_sector', lookback_start_date: lookback,
+      status: 'sent', request_date: '2025-11-15', sla_deadline: '2025-12-15', sla_breached: 0,
       notes: 'Cross-sector hire from insurance to banking',
-      integration_snapshot: JSON.stringify({
-        generated_at: '2025-11-15T08:00:00.000Z',
-        summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 },
-      }),
+      integration_snapshot: JSON.stringify({ generated_at: '2025-11-15T08:00:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 } }),
       integration_last_checked_at: '2025-11-15T08:00:00.000Z',
       initiated_by_user_id: users[3].user_id,
     },
+    // 2 — Chan Mei Ling: compliance officer hire (response_provided)
     {
       request_id: uuidv4(),
       individual_id: individuals[3].individual_id,
       recruiting_institution_id: institutions[3].institution_id,
       reference_providing_institution_id: institutions[0].institution_id,
-      consent_id: null,
-      request_sector: 'cross_sector',
-      lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-      status: 'response_provided',
-      request_date: '2025-10-01',
-      response_date: '2025-10-20',
-      sla_deadline: '2025-10-31',
-      sla_breached: 0,
-      notes: 'Compliance officer hire',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-10-01T08:45:00.000Z',
-            summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 1, litigation_hits: 1 }
-        }),
-        integration_last_checked_at: '2025-10-01T08:45:00.000Z',
+      consent_id: null, request_sector: 'cross_sector', lookback_start_date: lookback,
+      status: 'response_provided', request_date: '2025-10-01', response_date: '2025-10-20', sla_deadline: '2025-10-31', sla_breached: 0,
+      notes: 'Compliance officer hire — cross-sector',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-10-01T08:45:00.000Z', summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 1, litigation_hits: 1 } }),
+      integration_last_checked_at: '2025-10-01T08:45:00.000Z',
       initiated_by_user_id: users[6].user_id,
     },
+    // 3 — Ng Hoi Yee: analyst transfer (draft)
     {
       request_id: uuidv4(),
       individual_id: individuals[4].individual_id,
       recruiting_institution_id: institutions[4].institution_id,
       reference_providing_institution_id: institutions[0].institution_id,
-      consent_id: null,
-      request_sector: 'securities',
-      lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-      status: 'draft',
-      request_date: null,
-      sla_deadline: null,
-      sla_breached: 0,
+      consent_id: null, request_sector: 'securities', lookback_start_date: lookback,
+      status: 'draft', request_date: null, sla_deadline: null, sla_breached: 0,
       notes: 'Analyst transfer from banking to securities',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-12-01T14:20:00.000Z',
-            summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 1, litigation_hits: 0 }
-        }),
-        integration_last_checked_at: '2025-12-01T14:20:00.000Z',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-12-01T14:20:00.000Z', summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 1, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-12-01T14:20:00.000Z',
       initiated_by_user_id: users[7].user_id,
     },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[1].individual_id,
-        recruiting_institution_id: institutions[1].institution_id,
-        reference_providing_institution_id: institutions[4].institution_id,
-        consent_id: null,
-        request_sector: 'securities',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'reviewed',
-        request_date: '2025-08-12',
-        response_date: '2025-08-26',
-        review_date: '2025-08-29',
-        sla_deadline: '2025-09-11',
-        sla_breached: 0,
-        notes: 'Front office transfer with completed MRC review',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-08-12T09:15:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 2, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-08-12T09:15:00.000Z',
-        initiated_by_user_id: users[5].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[0].individual_id,
-        recruiting_institution_id: institutions[2].institution_id,
-        reference_providing_institution_id: institutions[1].institution_id,
-        consent_id: null,
-        request_sector: 'insurance',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'closed',
-        request_date: '2025-07-03',
-        response_date: '2025-07-22',
-        review_date: '2025-07-24',
-        close_date: '2025-07-25',
-        sla_deadline: '2025-08-02',
-        sla_breached: 0,
-        notes: 'Completed insurance role onboarding check',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-07-03T07:50:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-07-03T07:50:00.000Z',
-        initiated_by_user_id: users[7].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[2].individual_id,
-        recruiting_institution_id: institutions[3].institution_id,
-        reference_providing_institution_id: institutions[0].institution_id,
-        consent_id: null,
-        request_sector: 'cross_sector',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'cancelled',
-        request_date: '2025-09-05',
-        sla_deadline: '2025-10-05',
-        sla_breached: 0,
-        notes: 'Cancelled after candidate withdrew acceptance',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-09-05T11:30:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-09-05T11:30:00.000Z',
-        initiated_by_user_id: users[6].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[1].institution_id,
-        consent_id: null,
-        request_sector: 'banking',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'draft',
-        request_date: null,
-        response_date: null,
-        sla_deadline: null,
-        sla_breached: 0,
-        notes: 'James Lee profile review - draft request',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2026-01-03T09:30:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2026-01-03T09:30:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[2].institution_id,
-        consent_id: null,
-        request_sector: 'cross_sector',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'consent_obtained',
-        request_date: null,
-        response_date: null,
-        sla_deadline: null,
-        sla_breached: 0,
-        notes: 'James Lee profile review - consent completed',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2026-01-05T11:00:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2026-01-05T11:00:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[3].institution_id,
-        consent_id: null,
-        request_sector: 'insurance',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'sent',
-        request_date: '2026-01-08',
-        response_date: null,
-        sla_deadline: '2026-02-07',
-        sla_breached: 0,
-        notes: 'James Lee profile review - sent to insurer',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2026-01-08T08:25:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2026-01-08T08:25:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[4].institution_id,
-        consent_id: null,
-        request_sector: 'securities',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'acknowledged',
-        request_date: '2025-12-15',
-        response_date: null,
-        sla_deadline: '2026-01-14',
-        sla_breached: 0,
-        notes: 'James Lee profile review - acknowledged by provider',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-12-15T13:10:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 2, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-12-15T13:10:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[1].institution_id,
-        consent_id: null,
-        request_sector: 'banking',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'in_progress',
-        request_date: '2025-12-01',
-        response_date: null,
-        sla_deadline: '2025-12-31',
-        sla_breached: 0,
-        notes: 'James Lee profile review - in progress',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-12-01T10:45:00.000Z',
-          summary: { watchlist_hits: 1, license_matches: 1, issue_hits: 1, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-12-01T10:45:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[2].institution_id,
-        consent_id: null,
-        request_sector: 'cross_sector',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'response_provided',
-        request_date: '2025-11-10',
-        response_date: '2025-11-28',
-        sla_deadline: '2025-12-10',
-        sla_breached: 0,
-        notes: 'James Lee profile review - response provided',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-11-10T09:05:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 2, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-11-10T09:05:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[3].institution_id,
-        consent_id: null,
-        request_sector: 'insurance',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'reviewed',
-        request_date: '2025-10-06',
-        response_date: '2025-10-24',
-        sla_deadline: '2025-11-05',
-        sla_breached: 0,
-        notes: 'James Lee profile review - reviewed by compliance',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-10-06T14:00:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-10-06T14:00:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[4].institution_id,
-        consent_id: null,
-        request_sector: 'securities',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'closed',
-        request_date: '2025-09-01',
-        response_date: '2025-09-18',
-        sla_deadline: '2025-10-01',
-        sla_breached: 0,
-        notes: 'James Lee profile review - case closed',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-09-01T08:40:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 2, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-09-01T08:40:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[1].institution_id,
-        consent_id: null,
-        request_sector: 'banking',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'cancelled',
-        request_date: '2025-08-05',
-        response_date: null,
-        sla_deadline: '2025-09-04',
-        sla_breached: 0,
-        notes: 'James Lee profile review - cancelled by recruiting team',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-08-05T11:50:00.000Z',
-          summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-08-05T11:50:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
-      {
-        request_id: uuidv4(),
-        individual_id: individuals[5].individual_id,
-        recruiting_institution_id: institutions[0].institution_id,
-        reference_providing_institution_id: institutions[2].institution_id,
-        consent_id: null,
-        request_sector: 'cross_sector',
-        lookback_start_date: sevenYearsAgo.toISOString().split('T')[0],
-        status: 'in_progress',
-        request_date: '2025-07-10',
-        response_date: null,
-        sla_deadline: '2025-08-09',
-        sla_breached: 1,
-        notes: 'James Lee profile review - legacy case with SLA breach',
-        integration_snapshot: JSON.stringify({
-          generated_at: '2025-07-10T15:20:00.000Z',
-          summary: { watchlist_hits: 1, license_matches: 1, issue_hits: 3, litigation_hits: 0 },
-        }),
-        integration_last_checked_at: '2025-07-10T15:20:00.000Z',
-        initiated_by_user_id: users[4].user_id,
-      },
+    // 4 — Li Ka Ming: front office transfer (reviewed)
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[1].individual_id,
+      recruiting_institution_id: institutions[1].institution_id,
+      reference_providing_institution_id: institutions[4].institution_id,
+      consent_id: null, request_sector: 'securities', lookback_start_date: lookback,
+      status: 'reviewed', request_date: '2025-08-12', response_date: '2025-08-26', review_date: '2025-08-29', sla_deadline: '2025-09-11', sla_breached: 0,
+      notes: 'Front office transfer with completed MRC review',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-08-12T09:15:00.000Z', summary: { watchlist_hits: 0, license_matches: 2, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-08-12T09:15:00.000Z',
+      initiated_by_user_id: users[5].user_id,
+    },
+    // 5 — Cheung Wing Yan: insurance onboarding (closed)
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[0].individual_id,
+      recruiting_institution_id: institutions[2].institution_id,
+      reference_providing_institution_id: institutions[1].institution_id,
+      consent_id: null, request_sector: 'insurance', lookback_start_date: lookback,
+      status: 'closed', request_date: '2025-07-03', response_date: '2025-07-22', review_date: '2025-07-24', close_date: '2025-07-25', sla_deadline: '2025-08-02', sla_breached: 0,
+      notes: 'Completed insurance role onboarding check',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-07-03T07:50:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-07-03T07:50:00.000Z',
+      initiated_by_user_id: users[7].user_id,
+    },
+    // 6 — Wong Siu Fung: cancelled request
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[2].individual_id,
+      recruiting_institution_id: institutions[3].institution_id,
+      reference_providing_institution_id: institutions[0].institution_id,
+      consent_id: null, request_sector: 'cross_sector', lookback_start_date: lookback,
+      status: 'cancelled', request_date: '2025-09-05', sla_deadline: '2025-10-05', sla_breached: 0,
+      notes: 'Cancelled after candidate withdrew acceptance',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-09-05T11:30:00.000Z', summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-09-05T11:30:00.000Z',
+      initiated_by_user_id: users[6].user_id,
+    },
+    // 7 — Lau Tsz Kiu: banking draft
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[6].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[1].institution_id,
+      consent_id: null, request_sector: 'banking', lookback_start_date: lookback,
+      status: 'draft', request_date: null, sla_deadline: null, sla_breached: 0,
+      notes: 'ARM promotion reference check — draft',
+      integration_snapshot: JSON.stringify({ generated_at: '2026-01-03T09:30:00.000Z', summary: { watchlist_hits: 0, license_matches: 0, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2026-01-03T09:30:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 8 — Ho Man Ching: consent obtained
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[7].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[2].institution_id,
+      consent_id: null, request_sector: 'cross_sector', lookback_start_date: lookback,
+      status: 'consent_obtained', request_date: null, sla_deadline: null, sla_breached: 0,
+      notes: 'Compliance analyst moving to banking — consent completed',
+      integration_snapshot: JSON.stringify({ generated_at: '2026-01-05T11:00:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2026-01-05T11:00:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 9 — Chow Yat Ming: sent to insurer
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[8].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[3].institution_id,
+      consent_id: null, request_sector: 'insurance', lookback_start_date: lookback,
+      status: 'sent', request_date: '2026-01-08', sla_deadline: '2026-02-07', sla_breached: 0,
+      notes: 'Equities associate moving to insurance sector',
+      integration_snapshot: JSON.stringify({ generated_at: '2026-01-08T08:25:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2026-01-08T08:25:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 10 — James Lee: acknowledged by provider
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[5].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[4].institution_id,
+      consent_id: null, request_sector: 'securities', lookback_start_date: lookback,
+      status: 'acknowledged', request_date: '2025-12-15', sla_deadline: '2026-01-14', sla_breached: 0,
+      notes: 'James Lee — securities reference acknowledged',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-12-15T13:10:00.000Z', summary: { watchlist_hits: 0, license_matches: 2, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-12-15T13:10:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 11 — Li Ka Ming: in progress banking
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[1].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[1].institution_id,
+      consent_id: null, request_sector: 'banking', lookback_start_date: lookback,
+      status: 'in_progress', request_date: '2025-12-01', sla_deadline: '2025-12-31', sla_breached: 0,
+      notes: 'Li Ka Ming — banking reference in progress',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-12-01T10:45:00.000Z', summary: { watchlist_hits: 1, license_matches: 1, issue_hits: 1, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-12-01T10:45:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 12 — Chan Mei Ling: response provided cross-sector
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[3].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[2].institution_id,
+      consent_id: null, request_sector: 'cross_sector', lookback_start_date: lookback,
+      status: 'response_provided', request_date: '2025-11-10', response_date: '2025-11-28', sla_deadline: '2025-12-10', sla_breached: 0,
+      notes: 'Chan Mei Ling — cross-sector response received from AIA',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-11-10T09:05:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 2, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-11-10T09:05:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 13 — Ng Hoi Yee: reviewed by compliance
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[4].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[3].institution_id,
+      consent_id: null, request_sector: 'insurance', lookback_start_date: lookback,
+      status: 'reviewed', request_date: '2025-10-06', response_date: '2025-10-24', sla_deadline: '2025-11-05', sla_breached: 0,
+      notes: 'Ng Hoi Yee — insurance reference reviewed',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-10-06T14:00:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-10-06T14:00:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 14 — Ho Man Ching: closed
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[7].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[4].institution_id,
+      consent_id: null, request_sector: 'securities', lookback_start_date: lookback,
+      status: 'closed', request_date: '2025-09-01', response_date: '2025-09-18', sla_deadline: '2025-10-01', sla_breached: 0,
+      notes: 'Ho Man Ching — securities case closed',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-09-01T08:40:00.000Z', summary: { watchlist_hits: 0, license_matches: 2, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-09-01T08:40:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 15 — Lau Tsz Kiu: cancelled
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[6].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[1].institution_id,
+      consent_id: null, request_sector: 'banking', lookback_start_date: lookback,
+      status: 'cancelled', request_date: '2025-08-05', sla_deadline: '2025-09-04', sla_breached: 0,
+      notes: 'Lau Tsz Kiu — cancelled by recruiting team',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-08-05T11:50:00.000Z', summary: { watchlist_hits: 0, license_matches: 1, issue_hits: 0, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-08-05T11:50:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
+    // 16 — Chow Yat Ming: SLA breach legacy
+    {
+      request_id: uuidv4(),
+      individual_id: individuals[8].individual_id,
+      recruiting_institution_id: institutions[0].institution_id,
+      reference_providing_institution_id: institutions[2].institution_id,
+      consent_id: null, request_sector: 'cross_sector', lookback_start_date: lookback,
+      status: 'in_progress', request_date: '2025-07-10', sla_deadline: '2025-08-09', sla_breached: 1,
+      notes: 'Chow Yat Ming — legacy case with SLA breach',
+      integration_snapshot: JSON.stringify({ generated_at: '2025-07-10T15:20:00.000Z', summary: { watchlist_hits: 1, license_matches: 1, issue_hits: 3, litigation_hits: 0 } }),
+      integration_last_checked_at: '2025-07-10T15:20:00.000Z',
+      initiated_by_user_id: users[4].user_id,
+    },
   ];
 
   const buildMockLicenseRecords = (count, req, snapshot) => {
@@ -1436,7 +1288,10 @@ async function seed() {
       requests.find((req) => req.individual_id === jamesLeeIndividualId && req.status === 'in_progress')
       || requests.find((req) => req.individual_id === jamesLeeIndividualId);
 
+    // --- Ongoing Monitoring Schedules ---
+    // Spread across different individuals with varied frequencies and review dates.
     const monitoringSchedules = [
+      // Cheung Wing Yan — quarterly RM monitoring
       {
         monitoring_id: uuidv4(),
         request_id: requests[0].request_id,
@@ -1445,9 +1300,10 @@ async function seed() {
         last_review_date: '2025-12-01',
         status: 'active',
         scope: JSON.stringify({ regulators: ['HKMA', 'SFC'], checks: ['watchlist', 'disciplinary_actions'] }),
-        notes: 'Quarterly review for relationship manager role',
+        notes: 'Quarterly RM monitoring — Cheung Wing Yan',
         created_by_user_id: users[4].user_id,
       },
+      // Chan Mei Ling — monthly probation monitoring
       {
         monitoring_id: uuidv4(),
         request_id: requests[2].request_id,
@@ -1456,11 +1312,72 @@ async function seed() {
         last_review_date: '2026-01-25',
         status: 'active',
         scope: JSON.stringify({ regulators: ['IA'], checks: ['litigation', 'watchlist'] }),
-        notes: 'Monthly review while probation is active',
+        notes: 'Monthly review while probation active — Chan Mei Ling',
         created_by_user_id: users[6].user_id,
+      },
+      // Li Ka Ming — quarterly securities monitoring
+      {
+        monitoring_id: uuidv4(),
+        request_id: requests[11].request_id,
+        review_frequency: 'quarterly',
+        next_review_date: '2026-03-15',
+        last_review_date: '2025-12-15',
+        status: 'active',
+        scope: JSON.stringify({ regulators: ['SFC', 'HKMA'], checks: ['watchlist', 'disciplinary_actions', 'litigation'] }),
+        notes: 'Quarterly compliance check — Li Ka Ming',
+        created_by_user_id: users[4].user_id,
+      },
+      // Ho Man Ching — semi-annual monitoring
+      {
+        monitoring_id: uuidv4(),
+        request_id: requests[14].request_id,
+        review_frequency: 'semi_annual',
+        next_review_date: '2026-03-01',
+        last_review_date: '2025-09-01',
+        status: 'active',
+        scope: JSON.stringify({ regulators: ['SFC'], checks: ['watchlist', 'litigation'] }),
+        notes: 'Semi-annual post-close review — Ho Man Ching',
+        created_by_user_id: users[4].user_id,
+      },
+      // Chow Yat Ming — monthly SLA breach follow-up
+      {
+        monitoring_id: uuidv4(),
+        request_id: requests[16].request_id,
+        review_frequency: 'monthly',
+        next_review_date: '2026-03-10',
+        last_review_date: '2026-02-10',
+        status: 'active',
+        scope: JSON.stringify({ regulators: ['HKMA', 'IA'], checks: ['watchlist', 'disciplinary_actions', 'litigation'], jurisdictions: ['HK'] }),
+        notes: 'Monthly follow-up after SLA breach — Chow Yat Ming',
+        created_by_user_id: users[4].user_id,
+      },
+      // Wong Siu Fung — weekly intensive monitoring
+      {
+        monitoring_id: uuidv4(),
+        request_id: requests[1].request_id,
+        review_frequency: 'weekly',
+        next_review_date: '2026-02-28',
+        last_review_date: '2026-02-21',
+        status: 'active',
+        scope: JSON.stringify({ regulators: ['HKMA', 'IA'], checks: ['watchlist', 'disciplinary_actions'] }),
+        notes: 'Weekly cross-sector monitoring during onboarding — Wong Siu Fung',
+        created_by_user_id: users[3].user_id,
+      },
+      // Ng Hoi Yee — quarterly paused
+      {
+        monitoring_id: uuidv4(),
+        request_id: requests[13].request_id,
+        review_frequency: 'quarterly',
+        next_review_date: '2026-04-06',
+        last_review_date: '2026-01-06',
+        status: 'paused',
+        scope: JSON.stringify({ regulators: ['IA', 'MPFA'], checks: ['watchlist'] }),
+        notes: 'Paused pending internal review — Ng Hoi Yee',
+        created_by_user_id: users[4].user_id,
       },
     ];
 
+    // James Lee ongoing monitoring if an eligible request exists
     if (jamesLeeMonitoringRequest) {
       monitoringSchedules.push({
         monitoring_id: uuidv4(),
@@ -1474,7 +1391,7 @@ async function seed() {
           checks: ['watchlist', 'disciplinary_actions', 'litigation'],
           jurisdictions: ['HK', 'CN', 'SG'],
         }),
-        notes: 'James Lee ongoing monitoring for profile review and cross-sector fit checks',
+        notes: 'Monthly cross-sector fit check — James Lee',
         created_by_user_id: users[4].user_id,
       });
     }
@@ -1487,6 +1404,7 @@ async function seed() {
     for (const schedule of monitoringSchedules) insertMonitoring.run(schedule);
 
   // --- Sample Conduct Information ---
+  // Spread across different individuals, not just one person.
   const conductItems = [
     {
       conduct_id: uuidv4(),
@@ -1545,6 +1463,18 @@ async function seed() {
       incident_end_date: '2025-06-30',
       severity: 'material',
       regulator_reported: 1,
+      status: 'current',
+      submitted_by_user_id: users[4].user_id,
+    },
+    {
+      conduct_id: uuidv4(),
+      request_id: requests[9].request_id,
+      category: 'misconduct_report',
+      description: 'Compliance concern raised over undeclared outside business interest whilst on-boarding.',
+      incident_start_date: '2025-12-05',
+      incident_end_date: '2026-01-05',
+      severity: 'under_review',
+      regulator_reported: 0,
       status: 'current',
       submitted_by_user_id: users[4].user_id,
     },
