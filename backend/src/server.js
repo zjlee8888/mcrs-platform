@@ -1,5 +1,17 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+// ── Ensure critical env vars have defaults so Railway deploys work out of the box ──
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'mrcs-platform-default-secret-change-in-production';
+}
+if (!process.env.HKMA_API_BASE) {
+  process.env.HKMA_API_BASE = 'https://api.hkma.gov.hk/public';
+}
+if (!process.env.DB_PATH) {
+  process.env.DB_PATH = './data/mrcs.db';
+}
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
