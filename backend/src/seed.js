@@ -1583,6 +1583,11 @@ async function seed() {
   console.log('Goldman Compliance: compliance@gs.com.hk / Gs123!');
 }
 
-seed().then(() => {
-  db.close();
-}).catch(err => { console.error(err); process.exit(1); });
+module.exports = { seed };
+
+// Allow running directly via `node seed.js` or `npm run seed`
+if (require.main === module) {
+  seed().then(() => {
+    db.close();
+  }).catch(err => { console.error(err); process.exit(1); });
+}

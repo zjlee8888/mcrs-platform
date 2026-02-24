@@ -3,13 +3,23 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const { init, migrate } = require('./migrate');
+const { db, init, migrate } = require('./migrate');
 
 async function start() {
   // Startup order matters for debugging: DB init must succeed before routes are mounted,
   // otherwise handlers that call `db.prepare(...)` fail with less obvious runtime errors.
   await init();
   migrate();
+
+  // Auto-seed on first run: if the users table is empty, populate demo data.
+  // Uses INSERT OR IGNORE so it's safe even if partially seeded.
+  const userCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get();
+  if (!userCount || userCount.cnt === 0) {
+    console.log('🌱 Empty database detected — running seed...');
+    const { seed } = require('./seed');
+    await seed();
+    console.log('🌱 Seed complete.');
+  }
 
   const app = express();
 
